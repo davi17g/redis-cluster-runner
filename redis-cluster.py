@@ -1,11 +1,15 @@
-import os
-import signal
-import os.path
-import argparse
-import threading
+#!/usr/bin/env python3
+
 import subprocess
+import threading
+import argparse
+import os.path
+import shutil
+import signal
+import os
 
 ROOT_DIR = os.path.basename(__file__).split(".")[0]
+BASE_DIR = os.getcwd()
 
 
 def create_folders(start_port, cluster_size):
@@ -29,6 +33,16 @@ def create_config_files(start_port, cluster_size):
 
     for port in range(start_port, start_port + cluster_size):
         create_config_file(str(port))
+
+
+def create_cluster(addrs):
+    cmd = "redis-cli --cluster create {}".format(addrs)
+    p = subprocess.Popen([cmd], shell=True)
+    p.communicate()
+
+
+def remove_created_files():
+    shutil.rmtree(ROOT_DIR, ignore_errors=False, onerror=None)
 
 
 class RedisRunner(threading.Thread):
@@ -66,15 +80,17 @@ def main():
             thread.start()
             threads.append(thread)
         print("Cluster is ready!")
-        cmd = "redis-cli --replicas 1 {}".format(addrs)
-        print(subprocess.check_output([cmd], shell=True))
+
+        create_cluster(addrs)
 
         print("Cluster is Running...")
         [thread.join() for thread in threads]
     except KeyboardInterrupt:
-        print("Cluster is Stopping...")
+        print("\nCluster is Stopping...")
         [thread.close() for thread in threads]
-        print("Canning up")
+        os.chdir(BASE_DIR)
+        print("Canning up...")
+        remove_created_files()
 
 
 if __name__ == '__main__':
